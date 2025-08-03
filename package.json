@@ -1,16 +1,19 @@
 {
   "name": "social-poster",
-  "version": "1.0.0",
-  "description": "Transform any webpage into engaging social media posts",
-  "main": "popup.js",
+  "version": "1.2.0",
+  "description": "AI-powered Chrome extension for generating social media posts with images",
+  "main": "dist/popup.js",
   "scripts": {
-    "dev": "concurrently \"npm run css:watch\" \"web-ext run --source-dir=. --target=chromium\"",
-    "build": "npm run css:build && web-ext build --source-dir=. --artifacts-dir=dist",
+    "dev": "concurrently \"node build.js --dev\" \"npm run css:watch\"",
+    "build": "node build.js && npm run css:build",
+    "build:dev": "node build.js --dev && npm run css:build",
     "css:build": "tailwindcss -i ./src/input.css -o ./popup.css --minify",
     "css:watch": "tailwindcss -i ./src/input.css -o ./popup.css --watch",
+    "clean": "rm -rf dist",
+    "type-check": "tsc --noEmit",
     "lint": "web-ext lint --source-dir=.",
     "test": "jest",
-    "zip": "npm run build && zip -r social-poster-v1.0.0.zip . -x node_modules/\\* .git/\\* \\*.zip src/\\*"
+    "zip": "npm run build && zip -r social-poster-v1.2.0.zip . -x node_modules/\\* .git/\\* \\*.zip src/\\* \\*.ts build.js"
   },
   "keywords": [
     "chrome-extension",
@@ -21,15 +24,17 @@
   "author": "Your Name",
   "license": "MIT",
   "devDependencies": {
-    "web-ext": "^7.8.0",
-    "jest": "^29.7.0",
-    "@types/chrome": "^0.0.246",
-    "tailwindcss": "^3.4.0",
+    "@tailwindcss/forms": "^0.5.7",
+    "@types/chrome": "^0.0.254",
     "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.25.8",
+    "jest": "^29.7.0",
     "postcss": "^8.4.32",
     "postcss-cli": "^11.0.0",
-    "concurrently": "^8.2.2",
-    "@tailwindcss/forms": "^0.5.7"
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.3",
+    "web-ext": "^7.8.0"
   },
   "repository": {
     "type": "git",

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Social Poster - Auto Generate Social Media Posts",
-  "version": "1.0.0",
+  "name": "Social Poster - AI Post Generator",
+  "version": "1.2.0",
   "description": "Transform any webpage into engaging social media posts with one click",
   "permissions": [
     "activeTab",
@@ -10,13 +10,12 @@
     "tabs"
   ],
   "host_permissions": [
-    "http://*/*",
-    "https://*/*"
+    "https://api-inference.huggingface.co/*"
   ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["dist/content.js"],
       "run_at": "document_end"
     }
   ],
@@ -25,12 +24,20 @@
     "default_title": "Generate Social Posts"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "dist/background.js"
   },
   "web_accessible_resources": [
     {
-      "resources": ["*.png", "*.jpg", "*.svg"],
+      "resources": ["*.png", "*.jpg", "*.svg", "popup.css"],
       "matches": ["<all_urls>"]
     }
-  ]
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline';"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png", 
+    "128": "icon128.png"
+  }
 }

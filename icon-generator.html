@@ -1,71 +1,77 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social Poster Icon Generator</title>
+<style>
+  body { font-family: Arial; padding: 20px; }
+  .icon-container { display: inline-block; margin: 10px; text-align: center; }
+  canvas { border: 1px solid #ccc; display: block; margin: 10px 0; }
+</style>
 </head>
-<body style="margin: 0; padding: 20px; font-family: Arial, sans-serif;">
-    <h1>Social Poster Extension Icons</h1>
-    <p>Right-click each icon and save as the specified filename in the extension folder:</p>
-    
-    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-        <div>
-            <h3>icon16.png (16x16)</h3>
-            <canvas id="icon16" width="16" height="16" style="border: 1px solid #ccc; image-rendering: pixelated; width: 64px; height: 64px;"></canvas>
-        </div>
-        
-        <div>
-            <h3>icon48.png (48x48)</h3>
-            <canvas id="icon48" width="48" height="48" style="border: 1px solid #ccc;"></canvas>
-        </div>
-        
-        <div>
-            <h3>icon128.png (128x128)</h3>
-            <canvas id="icon128" width="128" height="128" style="border: 1px solid #ccc;"></canvas>
-        </div>
-    </div>
+<body>
+<h1>Social Poster Icon Generator</h1>
+<p>Click each button to download the corresponding icon:</p>
 
-    <script>
-        function drawIcon(canvasId, size) {
-            const canvas = document.getElementById(canvasId);
-            const ctx = canvas.getContext('2d');
-            
-            // Background gradient
-            const gradient = ctx.createLinearGradient(0, 0, size, size);
-            gradient.addColorStop(0, '#667eea');
-            gradient.addColorStop(1, '#764ba2');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, size, size);
-            
-            // White rocket emoji
-            ctx.fillStyle = 'white';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            // Adjust font size based on icon size
-            const fontSize = size * 0.6;
-            ctx.font = `${fontSize}px Arial`;
-            
-            // Draw rocket
-            ctx.fillText('🚀', size / 2, size / 2);
-            
-            // Convert to downloadable image
-            canvas.style.cursor = 'pointer';
-            canvas.onclick = () => {
-                const link = document.createElement('a');
-                link.download = `icon${size}.png`;
-                link.href = canvas.toDataURL();
-                link.click();
-            };
-        }
-        
-        // Generate all icons
-        drawIcon('icon16', 16);
-        drawIcon('icon48', 48);
-        drawIcon('icon128', 128);
-    </script>
-    
-    <p style="margin-top: 20px;">Click each icon to download it, then move them to the extension folder.</p>
+<div class="icon-container">
+  <canvas id="canvas16" width="16" height="16"></canvas>
+  <button onclick="downloadIcon(16)">Download icon16.png</button>
+</div>
+
+<div class="icon-container">
+  <canvas id="canvas48" width="48" height="48"></canvas>
+  <button onclick="downloadIcon(48)">Download icon48.png</button>
+</div>
+
+<div class="icon-container">
+  <canvas id="canvas128" width="128" height="128"></canvas>
+  <button onclick="downloadIcon(128)">Download icon128.png</button>
+</div>
+
+<script>
+function drawIcon(size) {
+  const canvas = document.getElementById('canvas' + size);
+  const ctx = canvas.getContext('2d');
+  
+  // Create gradient
+  const gradient = ctx.createLinearGradient(0, 0, size, size);
+  gradient.addColorStop(0, '#667eea');
+  gradient.addColorStop(1, '#764ba2');
+  
+  // Draw rounded rectangle
+  const radius = size * 0.125;
+  ctx.beginPath();
+  ctx.moveTo(radius, 0);
+  ctx.lineTo(size - radius, 0);
+  ctx.quadraticCurveTo(size, 0, size, radius);
+  ctx.lineTo(size, size - radius);
+  ctx.quadraticCurveTo(size, size, size - radius, size);
+  ctx.lineTo(radius, size);
+  ctx.quadraticCurveTo(0, size, 0, size - radius);
+  ctx.lineTo(0, radius);
+  ctx.quadraticCurveTo(0, 0, radius, 0);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  
+  // Draw "SP" text
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold ' + (size * 0.4) + 'px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('SP', size / 2, size / 2);
+}
+
+function downloadIcon(size) {
+  const canvas = document.getElementById('canvas' + size);
+  const link = document.createElement('a');
+  link.download = 'icon' + size + '.png';
+  link.href = canvas.toDataURL();
+  link.click();
+}
+
+// Draw all icons on load
+drawIcon(16);
+drawIcon(48);
+drawIcon(128);
+</script>
 </body>
 </html>
