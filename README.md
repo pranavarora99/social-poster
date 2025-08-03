@@ -1,8 +1,8 @@
-# 🚀 Social Poster - Chrome Extension
+# Social Poster - Chrome Extension
 
-Transform any webpage into engaging social media posts with one click.
+Transform any webpage into engaging social media posts with AI-powered personalization.
 
-## 🎯 Quick Start
+## Quick Start
 
 ### Development Setup
 ```bash
@@ -197,4 +197,4 @@ MIT License - see LICENSE file for details
 
 ---
 
-Built with ❤️ for content creators and marketers worldwide.
+Built for content creators and marketers worldwide.
