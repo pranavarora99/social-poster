@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Poster</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body class="bg-gray-50">
+    <div class="w-96 max-h-[600px] overflow-y-auto bg-white">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-primary-500 to-primary-900 text-white p-5 text-center">
+            <h1 class="text-xl font-bold mb-1">🚀 Social Poster</h1>
+            <p class="text-sm opacity-90">Transform any webpage into social posts</p>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="border-b border-gray-200">
+            <div class="flex">
+                <button id="tab-home" class="tab-btn active px-4 py-3 text-sm font-medium border-b-2 border-primary-500 text-primary-600">Home</button>
+                <button id="tab-style" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">Style</button>
+                <button id="tab-assets" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" disabled>Assets</button>
+            </div>
+        </nav>
+
+        <!-- Loading State -->
+        <div id="loading" class="text-center py-10 hidden">
+            <div class="spinner mx-auto mb-4"></div>
+            <p class="text-gray-600">Analyzing content...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="text-center py-10 text-red-600 hidden">
+            <p class="mb-4">❌ Failed to extract page data</p>
+            <button id="retry-btn" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Retry</button>
+        </div>
+
+        <!-- Home Tab Content -->
+        <div id="home-content" class="tab-content">
+            <!-- URL Input Section -->
+            <section class="p-5 border-b border-gray-200">
+                <h3 class="text-lg font-semibold mb-3 flex items-center">
+                    <span class="mr-2">🔗</span> Webpage URL
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex gap-2">
+                        <input 
+                            type="url" 
+                            id="url-input" 
+                            placeholder="https://example.com/article" 
+                            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                        >
+                        <button id="current-page-btn" class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm" title="Use current page">
+                            📄
+                        </button>
+                    </div>
+                    <button id="analyze-btn" class="w-full bg-gradient-to-r from-primary-500 to-primary-900 text-white py-2 px-4 rounded-lg hover:shadow-lg transition-all duration-200 font-medium">
+                        <span id="analyze-btn-text">✨ Analyze Page</span>
+                        <span id="analyze-spinner" class="hidden">🔄 Analyzing...</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Recent URLs -->
+            <section class="p-5 border-b border-gray-200">
+                <h3 class="text-sm font-medium text-gray-700 mb-2">Recent URLs</h3>
+                <div id="recent-urls" class="space-y-2">
+                    <div class="text-sm text-gray-500 text-center py-2">No recent URLs</div>
+                </div>
+            </section>
+
+            <!-- Page Preview Section -->
+            <section id="page-preview" class="p-5 border-b border-gray-200 hidden">
+                <h3 class="text-lg font-semibold mb-3 flex items-center">
+                    <span class="mr-2">📄</span> Page Overview
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <h4 id="page-title" class="font-semibold text-gray-900 mb-2"></h4>
+                        <p id="page-description" class="text-sm text-gray-600 mb-3"></p>
+                        <div id="page-image" class="hidden mb-3">
+                            <img id="main-image" alt="Page featured image" class="w-full h-24 object-cover rounded-lg">
+                        </div>
+                        <div id="key-points">
+                            <h5 class="text-sm font-medium text-gray-700 mb-2">Key Points:</h5>
+                            <ul id="points-list" class="space-y-1"></ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Platform Selection -->
+            <section id="platform-selection" class="p-5 border-b border-gray-200 hidden">
+                <h3 class="text-lg font-semibold mb-3 flex items-center">
+                    <span class="mr-2">📱</span> Choose Platforms
+                </h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="platform-card active relative">
+                        <input type="checkbox" name="platform" value="linkedin" checked class="sr-only">
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">💼</div>
+                            <div class="text-sm font-medium">LinkedIn</div>
+                            <div class="text-xs text-gray-500">Max 1300 chars</div>
+                        </div>
+                        <div class="engagement-indicator hidden absolute top-2 right-2 w-2 h-2 bg-green-400 rounded-full"></div>
+                    </label>
+                    
+                    <label class="platform-card active relative">
+                        <input type="checkbox" name="platform" value="twitter" checked class="sr-only">
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">🐦</div>
+                            <div class="text-sm font-medium">Twitter</div>
+                            <div class="text-xs text-gray-500">280 chars/tweet</div>
+                        </div>
+                        <div class="engagement-indicator hidden absolute top-2 right-2 w-2 h-2 bg-green-400 rounded-full"></div>
+                    </label>
+                    
+                    <label class="platform-card relative">
+                        <input type="checkbox" name="platform" value="instagram" class="sr-only">
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">📸</div>
+                            <div class="text-sm font-medium">Instagram</div>
+                            <div class="text-xs text-gray-500">Max 2200 chars</div>
+                        </div>
+                        <div class="engagement-indicator hidden absolute top-2 right-2 w-2 h-2 bg-green-400 rounded-full"></div>
+                    </label>
+                    
+                    <label class="platform-card relative">
+                        <input type="checkbox" name="platform" value="facebook" class="sr-only">
+                        <div class="text-center">
+                            <div class="text-2xl mb-1">👥</div>
+                            <div class="text-sm font-medium">Facebook</div>
+                            <div class="text-xs text-gray-500">Max 63,206 chars</div>
+                        </div>
+                        <div class="engagement-indicator hidden absolute top-2 right-2 w-2 h-2 bg-green-400 rounded-full"></div>
+                    </label>
+                </div>
+                
+                <!-- Content Context -->
+                <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <h4 class="text-sm font-semibold text-blue-900 mb-2">🎯 Your relationship to this content:</h4>
+                    <div class="space-y-2">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="content-context" value="own-work" class="mr-3">
+                            <span class="text-sm text-blue-800">📝 My own blog/article</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="content-context" value="completed-project" class="mr-3">
+                            <span class="text-sm text-blue-800">🚀 Project I completed</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="content-context" value="work-showcase" class="mr-3">
+                            <span class="text-sm text-blue-800">🏆 Work I want to showcase</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="content-context" value="found-interesting" checked class="mr-3">
+                            <span class="text-sm text-blue-800">🔍 Found this interesting</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="content-context" value="learning-resource" class="mr-3">
+                            <span class="text-sm text-blue-800">📚 Learning from this</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="content-context" value="client-work" class="mr-3">
+                            <span class="text-sm text-blue-800">🤝 Client/team work</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="content-context" value="custom" class="mr-3">
+                            <span class="text-sm text-blue-800">✨ Custom personal context</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Custom Personal Context -->
+                <div id="custom-context-section" class="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200 hidden">
+                    <h4 class="text-sm font-semibold text-purple-900 mb-2 flex items-center">
+                        💬 Tell your story:
+                        <span class="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">Hyper-personalized</span>
+                    </h4>
+                    <textarea 
+                        id="custom-context-text" 
+                        placeholder="Share your personal motivation, story, or unique angle for this post. For example:
+
+• 'I spent 6 months struggling with this exact problem until I discovered this solution'
+• 'This reminds me of a mistake I made early in my career that cost us $50k'
+• 'My team just used this approach to increase our conversion rate by 40%'
+• 'As someone who's been in tech for 15 years, this trend really excites me because...'
+
+The more specific and personal, the better your AI-generated posts will be!"
+                        class="w-full h-20 px-3 py-2 border border-purple-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        maxlength="300"
+                    ></textarea>
+                    <div class="flex justify-between items-center mt-2">
+                        <span class="text-xs text-purple-600">✨ This creates highly personalized, authentic content</span>
+                        <span id="custom-context-count" class="text-xs text-purple-500 font-mono">0/300</span>
+                    </div>
+                </div>
+                
+                <!-- Quick Options -->
+                <div class="mt-4 space-y-2">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="follow-page-theme" class="mr-3 rounded">
+                        <span class="text-sm text-gray-700">🎨 Follow page colors and branding</span>
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="auto-save" checked class="mr-3 rounded">
+                        <span class="text-sm text-gray-700">💾 Auto-save generated content</span>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Actions -->
+            <section id="home-actions" class="p-5 hidden">
+                <div class="bg-blue-50 p-3 rounded-lg mb-4">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-blue-700 font-medium">🎯 Ready to generate content</span>
+                        <span id="estimated-time" class="text-blue-600">~5 seconds</span>
+                    </div>
+                    <div class="mt-2 bg-blue-200 rounded-full h-1">
+                        <div id="readiness-bar" class="bg-blue-500 h-1 rounded-full transition-all duration-300" style="width: 100%"></div>
+                    </div>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button id="generate-btn" class="flex-1 bg-gradient-to-r from-primary-500 to-primary-900 text-white py-2 px-4 rounded-lg hover:shadow-lg transition-all duration-200 font-medium">
+                        ✨ Generate Posts
+                    </button>
+                    <button id="preview-btn" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                        👁️ Preview
+                    </button>
+                </div>
+                
+                <!-- Keyboard Shortcut Hints -->
+                <div class="mt-2 text-center space-y-1">
+                    <div class="text-xs text-gray-500">
+                        <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">Ctrl+Enter</kbd> to analyze • 
+                        <kbd class="px-1 py-0.5 bg-gray-200 rounded text-xs">Ctrl+G</kbd> to generate
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Style Tab Content -->
+        <div id="style-content" class="tab-content hidden">
+            <!-- Template Selection -->
+            <section class="p-5 border-b border-gray-200">
+                <h3 class="text-lg font-semibold mb-3 flex items-center">
+                    <span class="mr-2">🎨</span> Template Style
+                </h3>
+                <div class="space-y-3">
+                    <label class="platform-card block active">
+                        <input type="radio" name="template" value="professional" checked class="sr-only">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="font-medium">Professional</div>
+                                <div class="text-sm text-gray-500">Clean, business-focused</div>
+                            </div>
+                            <div class="w-12 h-8 bg-gradient-to-r from-blue-100 to-blue-200 rounded border-2 border-blue-300"></div>
+                        </div>
+                    </label>
+                    
+                    <label class="platform-card block">
+                        <input type="radio" name="template" value="modern" class="sr-only">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="font-medium">Modern</div>
+                                <div class="text-sm text-gray-500">Trendy, eye-catching</div>
+                            </div>
+                            <div class="w-12 h-8 bg-gradient-to-r from-purple-100 to-pink-200 rounded border-2 border-purple-300"></div>
+                        </div>
+                    </label>
+                    
+                    <label class="platform-card block">
+                        <input type="radio" name="template" value="minimal" class="sr-only">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="font-medium">Minimal</div>
+                                <div class="text-sm text-gray-500">Simple, elegant</div>
+                            </div>
+                            <div class="w-12 h-8 bg-gradient-to-r from-gray-100 to-gray-200 rounded border-2 border-gray-300"></div>
+                        </div>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Brand Colors -->
+            <section class="p-5 border-b border-gray-200">
+                <h3 class="text-lg font-semibold mb-3 flex items-center">
+                    <span class="mr-2">🎨</span> Brand Colors
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex gap-2">
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Primary Color</label>
+                            <input type="color" id="primary-color" value="#667eea" class="w-full h-10 rounded border border-gray-300">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Secondary Color</label>
+                            <input type="color" id="secondary-color" value="#764ba2" class="w-full h-10 rounded border border-gray-300">
+                        </div>
+                    </div>
+                    <button id="auto-extract-colors" class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+                        🎯 Auto-extract from webpage
+                    </button>
+                </div>
+            </section>
+
+            <!-- Brand Kit -->
+            <section class="p-5 border-b border-gray-200">
+                <h3 class="text-lg font-semibold mb-3 flex items-center">
+                    <span class="mr-2">📦</span> Brand Kit
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Logo Upload</label>
+                        <input type="file" id="logo-upload" accept="image/*" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                        <input type="text" id="company-name" placeholder="Your Company" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <button id="save-brand-kit" class="w-full bg-gradient-to-r from-primary-500 to-primary-900 text-white py-2 px-4 rounded-lg hover:shadow-lg transition-all duration-200 font-medium">
+                        💾 Save Brand Kit
+                    </button>
+                </div>
+            </section>
+
+            <!-- Content Quality -->
+            <section class="p-5">
+                <h3 class="text-lg font-semibold mb-3 flex items-center">
+                    <span class="mr-2">⚡</span> Content Quality
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-gray-700">AI Content Generation</span>
+                        <span id="ai-status" class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">✨ Premium AI Active</span>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-700">Content Style</span>
+                            <select id="content-tone" class="text-xs border border-gray-300 rounded px-2 py-1">
+                                <option value="professional">Professional</option>
+                                <option value="casual">Casual</option>
+                                <option value="witty">Witty</option>
+                                <option value="educational">Educational</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-medium text-gray-700">Engagement Focus</span>
+                            <select id="engagement-focus" class="text-xs border border-gray-300 rounded px-2 py-1">
+                                <option value="viral">Viral Potential</option>
+                                <option value="saves">Saves & Bookmarks</option>
+                                <option value="comments">Discussion</option>
+                                <option value="shares">Shares & Retweets</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Assets Tab Content -->
+        <div id="assets-content" class="tab-content hidden">
+            <section class="p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold flex items-center">
+                        <span class="mr-2">📋</span> Generated Posts
+                    </h3>
+                    <div class="text-xs text-gray-500">
+                        <span id="total-posts-count">0 posts</span> • 
+                        <span id="total-word-count">0 words</span>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions Bar -->
+                <div class="bg-gray-50 p-3 rounded-lg mb-4 flex items-center justify-between">
+                    <div class="flex gap-2">
+                        <button id="regenerate-all" class="text-xs px-3 py-1 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                            🔄 Regenerate All
+                        </button>
+                        <button id="ai-refine" class="text-xs px-3 py-1 bg-purple-50 border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-100">
+                            ✨ AI Refine
+                        </button>
+                        <button id="optimize-engagement" class="text-xs px-3 py-1 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                            🚀 Optimize
+                        </button>
+                    </div>
+                    <div class="flex gap-1">
+                        <button id="schedule-posts" class="text-xs px-3 py-1 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100">
+                            📅 Schedule
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="posts-container" class="space-y-4 mb-5"></div>
+                
+                <div class="flex gap-3">
+                    <button id="download-all-btn" class="flex-1 bg-gradient-to-r from-primary-500 to-primary-900 text-white py-2 px-4 rounded-lg hover:shadow-lg transition-all duration-200 font-medium">
+                        📥 Download All
+                    </button>
+                    <button id="copy-all-btn" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                        📋 Copy All
+                    </button>
+                    <button id="share-link-btn" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">
+                        🔗 Share
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <!-- Footer -->
+        <footer class="border-t border-gray-200 p-4 text-center">
+            <p class="text-xs text-gray-500">Made with ❤️ by Social Poster</p>
+        </footer>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
