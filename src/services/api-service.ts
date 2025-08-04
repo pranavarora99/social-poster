@@ -1,73 +1,163 @@
-// API Service with secure token management
+// Enterprise API Service with secure token management and circuit breakers
 import type { AIGenerationParams, HuggingFaceResponse } from '../types/index';
+import { SecureCredentialManager } from './secure-credential-manager';
 
 export class APIError extends Error {
   constructor(
     message: string,
     public readonly retryable: boolean = false,
     public readonly statusCode?: number,
-    public readonly originalError?: Error
+    public readonly originalError?: Error,
+    public readonly circuitBreakerTripped: boolean = false
   ) {
     super(message);
     this.name = 'APIError';
   }
 }
 
-export class TokenManager {
-  private static readonly TOKEN_KEY = 'hf_api_token';
-  private static readonly TOKEN_EXPIRY_KEY = 'hf_token_expiry';
+/**
+ * Circuit Breaker Pattern Implementation
+ */
+class CircuitBreaker {
+  private failures = 0;
+  private lastFailureTime = 0;
+  private state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
   
-  static async getToken(): Promise<string> {
+  constructor(
+    private readonly threshold: number = 5,
+    private readonly timeout: number = 60000, // 1 minute
+    private readonly monitor: string = 'default'
+  ) {}
+  
+  async execute<T>(operation: () => Promise<T>): Promise<T> {
+    if (this.state === 'OPEN') {
+      if (Date.now() - this.lastFailureTime > this.timeout) {
+        this.state = 'HALF_OPEN';
+      } else {
+        throw new APIError(`Circuit breaker OPEN for ${this.monitor}`, false, undefined, undefined, true);
+      }
+    }
+    
     try {
-      const result = await chrome.storage.local.get([this.TOKEN_KEY, this.TOKEN_EXPIRY_KEY]);
-      const token = result[this.TOKEN_KEY];
-      const expiry = result[this.TOKEN_EXPIRY_KEY];
-      
-      if (!token) {
-        throw new APIError('API token not configured. Please set up your Hugging Face token in settings.', false);
-      }
-      
-      // Check if token is expired (if expiry is set)
-      if (expiry && Date.now() > expiry) {
-        throw new APIError('API token has expired. Please refresh your token.', false);
-      }
-      
-      return token;
+      const result = await operation();
+      this.onSuccess();
+      return result;
     } catch (error) {
-      if (error instanceof APIError) throw error;
-      throw new APIError('Failed to retrieve API token', false, undefined, error as Error);
+      this.onFailure();
+      throw error;
     }
   }
   
-  static async setToken(token: string, expiryDays?: number): Promise<void> {
-    const storage: Record<string, any> = { [this.TOKEN_KEY]: token };
+  private onSuccess(): void {
+    this.failures = 0;
+    this.state = 'CLOSED';
+  }
+  
+  private onFailure(): void {
+    this.failures++;
+    this.lastFailureTime = Date.now();
     
-    if (expiryDays) {
-      storage[this.TOKEN_EXPIRY_KEY] = Date.now() + (expiryDays * 24 * 60 * 60 * 1000);
+    if (this.failures >= this.threshold) {
+      this.state = 'OPEN';
     }
-    
-    await chrome.storage.local.set(storage);
+  }
+  
+  getState(): string {
+    return `${this.state} (failures: ${this.failures})`;
+  }
+}
+
+/**
+ * Enhanced Token Manager with secure storage
+ */
+export class TokenManager {
+  private static readonly CREDENTIAL_ID = 'hf_access_token';
+  private static circuitBreaker = new CircuitBreaker(3, 30000, 'TokenManager');
+  
+  static async getToken(): Promise<string> {
+    return this.circuitBreaker.execute(async () => {
+      try {
+        const token = await SecureCredentialManager.getCredential(this.CREDENTIAL_ID);
+        
+        if (!token) {
+          throw new APIError('API token not configured. Please authenticate via OAuth.', false);
+        }
+        
+        // Validate token format
+        if (!SecureCredentialManager.validateCredential(token, 'api_token')) {
+          throw new APIError('Invalid token format detected.', false);
+        }
+        
+        // Check if rotation is needed
+        const rotationNeeded = await SecureCredentialManager.rotateCredentialIfNeeded(this.CREDENTIAL_ID);
+        if (rotationNeeded) {
+          console.warn('[TokenManager] Token rotation recommended');
+        }
+        
+        return token;
+        
+      } catch (error) {
+        if (error instanceof APIError) throw error;
+        throw new APIError('Failed to retrieve API token', false, undefined, error as Error);
+      }
+    });
+  }
+  
+  static async setToken(token: string, expiryMs?: number): Promise<void> {
+    try {
+      // Validate token before storing
+      if (!SecureCredentialManager.validateCredential(token, 'api_token')) {
+        throw new APIError('Invalid token format provided', false);
+      }
+      
+      const options = expiryMs ? { expires: Date.now() + expiryMs } : {};
+      await SecureCredentialManager.storeCredential(this.CREDENTIAL_ID, token, options);
+      
+    } catch (error) {
+      throw new APIError('Failed to store API token', false, undefined, error as Error);
+    }
   }
   
   static async clearToken(): Promise<void> {
-    await chrome.storage.local.remove([this.TOKEN_KEY, this.TOKEN_EXPIRY_KEY]);
+    try {
+      await SecureCredentialManager.deleteCredential(this.CREDENTIAL_ID);
+    } catch (error) {
+      throw new APIError('Failed to clear API token', false, undefined, error as Error);
+    }
   }
   
-  static async validateToken(token: string): Promise<boolean> {
-    try {
-      const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ inputs: 'test' })
-      });
-      
-      return response.status !== 401;
-    } catch {
-      return false;
-    }
+  static async validateToken(token: string): Promise<{ valid: boolean; details?: any }> {
+    return this.circuitBreaker.execute(async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch('https://api-inference.huggingface.co/whoami', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'SocialPoster/2.0.0'
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const details = await response.json();
+          return { valid: true, details };
+        }
+        
+        return { valid: false, details: { status: response.status, statusText: response.statusText } };
+        
+      } catch (error) {
+        return { valid: false, details: { error: error.message } };
+      }
+    });
+  }
+  
+  static getCircuitBreakerState(): string {
+    return this.circuitBreaker.getState();
   }
 }
 

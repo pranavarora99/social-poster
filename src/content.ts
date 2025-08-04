@@ -22,14 +22,67 @@ class WebpageExtractor {
   }
 
   private extractTitle(): string {
-    const h1Element = document.querySelector('h1');
-    const titleElement = document.querySelector('title');
+    // Try Open Graph title first as it's usually the most accurate
     const ogTitle = document.querySelector('meta[property="og:title"]') as HTMLMetaElement;
+    if (ogTitle?.content && ogTitle.content.length > 5 && !this.isNavigationText(ogTitle.content)) {
+      return ogTitle.content;
+    }
+
+    // Try page title, but clean it up
+    const titleElement = document.querySelector('title');
+    if (titleElement?.textContent) {
+      const cleanTitle = this.cleanTitle(titleElement.textContent.trim());
+      if (cleanTitle.length > 5 && !this.isNavigationText(cleanTitle)) {
+        return cleanTitle;
+      }
+    }
+
+    // Try h1, but be more selective
+    const h1Elements = document.querySelectorAll('h1');
+    for (const h1 of h1Elements) {
+      const text = h1.textContent?.trim();
+      if (text && text.length > 5 && !this.isNavigationText(text) && this.isMainContent(h1)) {
+        return text;
+      }
+    }
+
+    // Fallback to first meaningful heading
+    const headings = document.querySelectorAll('h1, h2, h3');
+    for (const heading of headings) {
+      const text = heading.textContent?.trim();
+      if (text && text.length > 10 && !this.isNavigationText(text) && this.isMainContent(heading)) {
+        return text;
+      }
+    }
     
-    return h1Element?.textContent?.trim() ||
-           titleElement?.textContent?.trim() ||
-           ogTitle?.content ||
-           'Untitled Page';
+    return 'Content Page';
+  }
+
+  private cleanTitle(title: string): string {
+    // Remove common site suffixes
+    return title
+      .replace(/\s*[-|]\s*.+$/, '') // Remove everything after - or |
+      .replace(/\s*:\s*.+$/, '')    // Remove everything after :
+      .trim();
+  }
+
+  private isNavigationText(text: string): boolean {
+    const navTerms = [
+      'menu', 'navigation', 'nav', 'home', 'about', 'contact', 'login', 'sign in', 'sign up',
+      'search', 'close', 'open', 'toggle', 'skip to content', 'skip to main',
+      'breadcrumb', 'sidebar', 'footer', 'header'
+    ];
+    
+    const lowerText = text.toLowerCase();
+    return navTerms.some(term => lowerText === term || lowerText.includes(term)) || text.length < 4;
+  }
+
+  private isMainContent(element: Element): boolean {
+    // Check if element is likely in main content area
+    const parent = element.closest('main, article, .content, .main, #content, #main, .post, .article');
+    const notInNav = !element.closest('nav, header, footer, .nav, .menu, .navigation, .sidebar');
+    
+    return !!parent || notInNav;
   }
 
   private extractDescription(): string {
@@ -71,51 +124,113 @@ class WebpageExtractor {
   private extractKeyPoints(): string[] {
     const points: string[] = [];
     
-    // Extract from headings (h2, h3, h4)
+    // Extract from headings in main content (h2, h3, h4)
     const headings = document.querySelectorAll('h2, h3, h4');
     headings.forEach(heading => {
       const text = heading.textContent?.trim();
-      if (text && text.length > 10 && text.length < 120) {
+      if (text && 
+          text.length > 10 && 
+          text.length < 120 && 
+          !this.isNavigationText(text) && 
+          this.isMainContent(heading) &&
+          this.isQualityContent(text)) {
         points.push(text);
       }
     });
 
-    // Extract from list items
+    // Extract from list items in main content
     const listItems = document.querySelectorAll('li');
     listItems.forEach(item => {
       const text = item.textContent?.trim();
-      if (text && text.length > 15 && text.length < 150 && !this.isNavItem(item)) {
+      if (text && 
+          text.length > 15 && 
+          text.length < 150 && 
+          !this.isNavItem(item) && 
+          !this.isNavigationText(text) &&
+          this.isQualityContent(text)) {
         points.push(text);
       }
     });
 
-    // Extract from bold/strong text
+    // Extract from bold/strong text in main content
     const strongElements = document.querySelectorAll('strong, b');
     strongElements.forEach(element => {
       const text = element.textContent?.trim();
-      if (text && text.length > 10 && text.length < 100) {
+      if (text && 
+          text.length > 10 && 
+          text.length < 100 && 
+          !this.isNavigationText(text) &&
+          this.isMainContent(element) &&
+          this.isQualityContent(text)) {
         points.push(text);
       }
     });
 
-    // Extract from paragraph sentences
-    const paragraphs = document.querySelectorAll('p');
+    // Extract meaningful sentences from paragraphs in main content
+    const paragraphs = document.querySelectorAll('main p, article p, .content p, .main p, #content p, #main p');
     paragraphs.forEach(p => {
-      const text = p.textContent?.trim();
-      if (text && text.length > 20) {
-        // Split into sentences and get meaningful ones
-        const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
-        sentences.slice(0, 2).forEach(sentence => {
-          if (sentence.trim().length < 150) {
-            points.push(sentence.trim());
-          }
-        });
+      if (!this.isNavItem(p)) {
+        const text = p.textContent?.trim();
+        if (text && text.length > 30) {
+          // Split into sentences and get meaningful ones
+          const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 25);
+          sentences.slice(0, 2).forEach(sentence => {
+            const cleanSentence = sentence.trim();
+            if (cleanSentence.length < 150 && 
+                cleanSentence.length > 25 &&
+                this.isQualityContent(cleanSentence) &&
+                !this.isNavigationText(cleanSentence)) {
+              points.push(cleanSentence);
+            }
+          });
+        }
       }
     });
 
-    // Return unique points, prioritizing headings
-    const uniquePoints = [...new Set(points)];
-    return uniquePoints.slice(0, 8);
+    // If we don't have enough points from main content, try broader search
+    if (points.length < 3) {
+      const allParagraphs = document.querySelectorAll('p');
+      allParagraphs.forEach(p => {
+        if (!this.isNavItem(p)) {
+          const text = p.textContent?.trim();
+          if (text && text.length > 50 && text.length < 300) {
+            const firstSentence = text.split(/[.!?]+/)[0]?.trim();
+            if (firstSentence && 
+                firstSentence.length > 25 && 
+                firstSentence.length < 150 &&
+                this.isQualityContent(firstSentence) &&
+                !this.isNavigationText(firstSentence)) {
+              points.push(firstSentence);
+            }
+          }
+        }
+      });
+    }
+
+    // Return unique, quality points
+    const uniquePoints = [...new Set(points)]
+      .filter(point => this.isQualityContent(point))
+      .sort((a, b) => b.length - a.length); // Prioritize longer, more detailed points
+    
+    return uniquePoints.slice(0, 6);
+  }
+
+  private isQualityContent(text: string): boolean {
+    // Filter out low-quality content
+    const lowQualityPatterns = [
+      /^(skip|menu|nav|home|about|contact|login|sign)/i,
+      /^(more|read more|click here|learn more)$/i,
+      /^(yes|no|ok|cancel|submit|close)$/i,
+      /^[0-9]+$/, // Just numbers
+      /^[a-z]{1,3}$/, // Single letters or very short words
+      /cookie|privacy|terms|disclaimer/i,
+      /^(.)$/, // Single characters
+      /^(..?)$/, // Very short text
+    ];
+
+    return !lowQualityPatterns.some(pattern => pattern.test(text)) && 
+           text.length > 8 && 
+           text.split(' ').length > 2; // At least 3 words
   }
 
   private extractBrandColors(): { primary: string; secondary: string } {
